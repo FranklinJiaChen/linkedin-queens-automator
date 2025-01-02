@@ -4,8 +4,10 @@ import numpy as np
 from datetime import datetime
 from collections import defaultdict
 
-# Capture a screenshot of a specific region
-screenshot = pyautogui.screenshot(region=(800, 400, 1425-800, 1030-400))
+# # Capture a screenshot of a specific region
+# screenshot = pyautogui.screenshot(region=(800, 400, 1425-800, 1030-400))
+# open the image
+screenshot = Image.open('2025-01-01_puzzle.png')
 
 # Convert the screenshot (Pillow Image) into a format we can work with
 image_rgb = screenshot.convert('RGB')

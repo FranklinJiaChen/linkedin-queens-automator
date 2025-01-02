@@ -1,3 +1,6 @@
+"""
+tests and times the different parts of the code
+"""
 import pyautogui
 from PIL import Image
 import numpy as np
@@ -51,10 +54,8 @@ for x in range(cropped_image.width):
 
 # sort by value
 sorted_colour_dict = dict(sorted(colour_dict.items(), key=lambda x: x[1], reverse=True))
-print(sorted_colour_dict)
 # count number of unique colours with values > 10
 unique_colours = sum(1 for value in sorted_colour_dict.values() if value > 10)-1
-print(unique_colours)
 
 resized_image = cropped_image.resize((unique_colours, unique_colours), Image.NEAREST)
 
@@ -141,35 +142,13 @@ for colour in colours:
     # Each colour must have at least one queen
     solver.add_clause([coord_to_index(i, j) for i, j in colour])
 
-# Find and print all solutions
-solutions = []
-while solver.solve():
-    solution = solver.get_model()
-    print(solution)
-    solutions.append(solution)
-
-    # Print the current solution
-    print(f"Solution {len(solutions)}:")
-    board = [['.' for _ in range(size)] for _ in range(size)]
-    for i in range(size):
-        for j in range(size):
-            if solution[coord_to_index(i, j) - 1] > 0:
-                board[i][j] = 'Q'
-    for row in board:
-        print(" ".join(row))
-    print()
-
-    # Add clause to block the current solution
-    solver.add_clause([-var for var in solution])
-
+solver.solve()
+solution = solver.get_model()
 solver.delete()
 
 print("Brain time: ", time.time()-brain_start)
 
 hand_start = time.time()
-
-# Print total solutions found
-print(f"Total Solutions: {len(solutions)}")
 
 box = [800+min_x, 400+min_y, max_x-min_x, max_y-min_y]
 for var in solution:
