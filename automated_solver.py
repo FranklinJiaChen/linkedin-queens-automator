@@ -1,11 +1,11 @@
 import pyautogui
 from PIL import Image
-import numpy as np
 from datetime import datetime
 from collections import defaultdict
 from pysat.solvers import Glucose3
 from itertools import combinations
 from random import randint
+import mss
 import time
 
 pyautogui.PAUSE = 0
@@ -19,7 +19,7 @@ def is_purpleish(colour):
 
 # Start the puzzle
 pyautogui.moveTo(1100, 1000)
-pyautogui.click()
+# pyautogui.click()
 pyautogui.moveTo(1100, 400) # avoid hovering over the puzzle
 
 # Wait until the color at pixel (1100, 400) is not purpleish
@@ -31,53 +31,25 @@ while is_purpleish(pyautogui.screenshot().getpixel((1100, 400))):
 
 eye_start = time.time()
 
-# Capture a screenshot of a specific region
-screenshot = pyautogui.screenshot(region=(800, 400, 1425-800, 1030-400))
+# Capture a screenshot of a specific region using mss
+screenshot_area = (817, 429, 596, 596)
+with mss.mss() as sct:
+    screenshot = sct.grab({"left": screenshot_area[0], "top": screenshot_area[1],
+                           "width": screenshot_area[2], "height": screenshot_area[3]})
 
-# load old image
-screenshot = Image.open("./images/old-puzzles/2025-01-01_puzzle.png")
-
-# Convert the screenshot (Pillow Image) into a format we can work with
-image_rgb = screenshot.convert('RGB')
-
-# Convert the image to grayscale
-gray_image = image_rgb.convert('L')
-
-# Convert the grayscale image to a numpy array
-gray_np = np.array(gray_image)
-
-# Create a mask for the non-white areas where pixel values are <= 245
-non_white_mask = gray_np <= 245
-
-# Find rows and columns that have any non-white pixel
-rows = np.any(non_white_mask, axis=1)
-cols = np.any(non_white_mask, axis=0)
-
-# Find the bounding box coordinates based on the non-white pixels
-min_y, max_y = np.where(rows)[0][[0, -1]]
-min_x, max_x = np.where(cols)[0][[0, -1]]
-
-# Crop the image based on the bounding box
-cropped_image = image_rgb.crop((min_x, min_y, max_x + 1, max_y + 1))
-
-# Get the current date in year-month-day format
-current_date = datetime.now().strftime('%Y-%m-%d')
-
-# Save the cropped image with the date in the filename
-cropped_image.save(f'./images/new-attempt/{current_date}_puzzle_{randomtag}.png')
-
+image = Image.frombytes("RGB", screenshot.size, screenshot.rgb)
 
 colour_dict = defaultdict(int)
 
-for x in range(0, cropped_image.width, randint(7, 10)):
-    for y in range(0, cropped_image.height, randint(7, 10)):
-        r, g, b = cropped_image.getpixel((x, y))
+for x in range(0, image.width, randint(27, 30)):
+    for y in range(0, image.height, randint(27, 30)):
+        r, g, b = image.getpixel((x, y))
         colour_dict[(r, g, b)] += 1
 
 # count number of unique colours with values > 10
 unique_colours = sum(1 for value in colour_dict.values() if value > 10)-1
 
-resized_image = cropped_image.resize((unique_colours, unique_colours), Image.NEAREST)
+resized_image = image.resize((unique_colours, unique_colours), Image.NEAREST)
 
 # create a dictionary of {colour: [(x, y), (x, y), ...]}
 colour_dict = defaultdict(list)
@@ -164,28 +136,33 @@ for colour in colours:
 solver.solve()
 solution = solver.get_model()
 
-# board = [['.' for _ in range(size)] for _ in range(size)]
-# for i in range(size):
-#     for j in range(size):
-#         if solution[coord_to_index(i, j) - 1] > 0:
-#             board[i][j] = 'Q'
-# for row in board:
-#     print("\t" + " ".join(row))
-# print()
+show_solution = False
+if show_solution:
+    board = [['.' for _ in range(size)] for _ in range(size)]
+    for i in range(size):
+        for j in range(size):
+            if solution[coord_to_index(i, j) - 1] > 0:
+                board[i][j] = 'Q'
+    for row in board:
+        print("\t" + " ".join(row))
+    print()
 
 print("Brain time: ", time.time()-brain_start)
 
 hand_start = time.time()
 
-box = [800+min_x, 400+min_y, max_x-min_x, max_y-min_y]
+# solution = [var+1 for var in solution]
 for var in solution:
     if var > 0:
         i, j = index_to_coord(var)
         # double click
-        pyautogui.doubleClick(((j+1)/(unique_colours+1)*box[2] + box[0])//1, ((i+1)/(unique_colours+1)*box[3] + box[1])//1)
+        pyautogui.doubleClick((j+1)/(unique_colours+1)*screenshot_area[2] + screenshot_area[0],
+                        (i+1)/(unique_colours+1)*screenshot_area[3] + screenshot_area[1])
 
 print("Hand time:", time.time() - hand_start)
 
 print("Total time: ", time.time()-eye_start)
 
-solver.delete()
+# Save screenshot to a file
+current_date = datetime.now().strftime('%Y-%m-%d')
+image.save(f'./images/new-attempt/{current_date}_puzzle_{randomtag}.png')
