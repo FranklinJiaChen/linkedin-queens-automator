@@ -5,10 +5,31 @@ from datetime import datetime
 from collections import defaultdict
 from pysat.solvers import Glucose3
 from itertools import combinations
+from random import randint
+
+solver = Glucose3()
+randomtag = ''.join([chr(randint(97, 122)) for i in range(5)])
+print(randomtag)
+
+def is_purpleish(color):
+    # Define what you consider "purpleish" in RGB space.
+    # Let's say a color is purpleish if it's close to a standard purple color in RGB.
+    r, g, b = color
+    return r > 100 and g < 100 and b > 100  # Adjust this threshold as needed
+
+# start the puzzle
+pyautogui.moveTo(1100, 1000)
+pyautogui.click()
+
+# Wait until the color at pixel (1100, 400) is not purpleish
+while is_purpleish(pyautogui.screenshot().getpixel((1100, 400))):
+    # Get and print the current pixel color
+    color = pyautogui.screenshot().getpixel((1100, 400))
+    print(color)
+    print("waiting")
 
 # Capture a screenshot of a specific region
 screenshot = pyautogui.screenshot(region=(800, 400, 1425-800, 1030-400))
-screenshot = Image.open('2025-01-01_puzzle.png')
 
 # Convert the screenshot (Pillow Image) into a format we can work with
 image_rgb = screenshot.convert('RGB')
@@ -37,13 +58,13 @@ cropped_image = image_rgb.crop((min_x + 3, min_y + 3, max_x - 3, max_y - 3))
 current_date = datetime.now().strftime('%Y-%m-%d')
 
 # Save the cropped image with the date in the filename
-cropped_image.save(f'{current_date}_puzzle.png')
+cropped_image.save(f'{current_date}_puzzle_{randomtag}.png')
 
 
 colour_dict = defaultdict(int)
 
-for x in range(cropped_image.width):
-    for y in range(cropped_image.height):
+for x in range(0, cropped_image.width, randint(7, 10)):
+    for y in range(0, cropped_image.height, randint(7, 10)):
         r, g, b = cropped_image.getpixel((x, y))
         colour_dict[(r, g, b)] += 1
 
@@ -59,7 +80,6 @@ for x in range(resized_image.width):
         r, g, b = resized_image.getpixel((x, y))
         colour_dict[(r, g, b)].append((x, y))
 
-solver = Glucose3()
 size = unique_colours
 
 def coord_to_index(i: int, j: int) -> int:
@@ -133,9 +153,8 @@ for colour in colours:
     solver.add_clause([coord_to_index(i, j) for i, j in colour])
 
 # Find and print all solutions
-solutions = []
-while solver.solve():
-    solution = solver.get_model()
+solver.solve()
+solution = solver.get_model()
 
 box = [800+min_x, 400+min_y, max_x-min_x, max_y-min_y]
 for var in solution:

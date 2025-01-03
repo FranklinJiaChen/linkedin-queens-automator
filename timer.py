@@ -14,7 +14,7 @@ import time
 eye_start = time.time()
 # Capture a screenshot of a specific region
 screenshot = pyautogui.screenshot(region=(800, 400, 1425-800, 1030-400))
-screenshot = Image.open('2025-01-01_puzzle.png')
+screenshot = Image.open('2025-01-02_puzzle.png')
 
 # Convert the screenshot (Pillow Image) into a format we can work with
 image_rgb = screenshot.convert('RGB')
@@ -41,9 +41,6 @@ cropped_image = image_rgb.crop((min_x + 3, min_y + 3, max_x - 3, max_y - 3))
 
 # Get the current date in year-month-day format
 current_date = datetime.now().strftime('%Y-%m-%d')
-
-# Save the cropped image with the date in the filename
-cropped_image.save(f'{current_date}_puzzle.png')
 
 colour_dict = defaultdict(int)
 
