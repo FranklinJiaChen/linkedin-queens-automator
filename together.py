@@ -6,18 +6,17 @@ from collections import defaultdict
 from pysat.solvers import Glucose3
 from itertools import combinations
 from random import randint
+import time
 
 solver = Glucose3()
-randomtag = ''.join([chr(randint(97, 122)) for i in range(5)])
-print(randomtag)
+randomtag = ''.join([chr(randint(97, 122)) for _ in range(5)])
+print("attempt tag: ", randomtag) # for debugging with screenshot
 
-def is_purpleish(color):
-    # Define what you consider "purpleish" in RGB space.
-    # Let's say a color is purpleish if it's close to a standard purple color in RGB.
-    r, g, b = color
+def is_purpleish(colour):
+    r, g, b = colour
     return r > 100 and g < 100 and b > 100  # Adjust this threshold as needed
 
-# start the puzzle
+# Start the puzzle
 pyautogui.moveTo(1100, 1000)
 pyautogui.click()
 
@@ -28,8 +27,13 @@ while is_purpleish(pyautogui.screenshot().getpixel((1100, 400))):
     print(color)
     print("waiting")
 
+eye_start = time.time()
+
 # Capture a screenshot of a specific region
 screenshot = pyautogui.screenshot(region=(800, 400, 1425-800, 1030-400))
+
+# load old image
+screenshot = Image.open("2025-01-02_puzzle.png")
 
 # Convert the screenshot (Pillow Image) into a format we can work with
 image_rgb = screenshot.convert('RGB')
@@ -108,6 +112,9 @@ def index_to_coord(index: int) -> tuple[int, int]:
     """
     return (index - 1) // size, (index - 1) % size
 
+print("Eye time: ", time.time()-eye_start)
+brain_start = time.time()
+
 # Generate clauses for Queens constraints
 # One queen per row
 for i in range(size):
@@ -156,11 +163,19 @@ for colour in colours:
 solver.solve()
 solution = solver.get_model()
 
+print("Brain time: ", time.time()-brain_start)
+
+hand_start = time.time()
+
 box = [800+min_x, 400+min_y, max_x-min_x, max_y-min_y]
 for var in solution:
     if var > 0:
         i, j = index_to_coord(var)
         # double click
         pyautogui.doubleClick(((j+1)/(unique_colours+1)*box[2] + box[0])//1, ((i+1)/(unique_colours+1)*box[3] + box[1])//1)
+
+print("Hand time:", time.time() - hand_start)
+
+print("Total time: ", time.time()-eye_start)
 
 solver.delete()
