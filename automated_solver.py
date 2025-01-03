@@ -8,6 +8,7 @@ from itertools import combinations
 from random import randint
 import time
 
+pyautogui.PAUSE = 0.025
 solver = Glucose3()
 randomtag = ''.join([chr(randint(97, 122)) for _ in range(5)])
 print("attempt tag: ", randomtag) # for debugging with screenshot
