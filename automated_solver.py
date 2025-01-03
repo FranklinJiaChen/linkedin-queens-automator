@@ -8,7 +8,7 @@ from itertools import combinations
 from random import randint
 import time
 
-pyautogui.PAUSE = 0.025
+pyautogui.PAUSE = 0
 solver = Glucose3()
 randomtag = ''.join([chr(randint(97, 122)) for _ in range(5)])
 print("attempt tag: ", randomtag) # for debugging with screenshot
@@ -20,6 +20,7 @@ def is_purpleish(colour):
 # Start the puzzle
 pyautogui.moveTo(1100, 1000)
 pyautogui.click()
+pyautogui.moveTo(1100, 400) # avoid hovering over the puzzle
 
 # Wait until the color at pixel (1100, 400) is not purpleish
 while is_purpleish(pyautogui.screenshot().getpixel((1100, 400))):
@@ -34,7 +35,7 @@ eye_start = time.time()
 screenshot = pyautogui.screenshot(region=(800, 400, 1425-800, 1030-400))
 
 # load old image
-screenshot = Image.open("2025-01-02_puzzle.png")
+screenshot = Image.open("./images/old-puzzles/2025-01-01_puzzle.png")
 
 # Convert the screenshot (Pillow Image) into a format we can work with
 image_rgb = screenshot.convert('RGB')
@@ -57,13 +58,13 @@ min_y, max_y = np.where(rows)[0][[0, -1]]
 min_x, max_x = np.where(cols)[0][[0, -1]]
 
 # Crop the image based on the bounding box
-cropped_image = image_rgb.crop((min_x + 3, min_y + 3, max_x - 3, max_y - 3))
+cropped_image = image_rgb.crop((min_x, min_y, max_x + 1, max_y + 1))
 
 # Get the current date in year-month-day format
 current_date = datetime.now().strftime('%Y-%m-%d')
 
 # Save the cropped image with the date in the filename
-cropped_image.save(f'{current_date}_puzzle_{randomtag}.png')
+cropped_image.save(f'./images/new-attempt/{current_date}_puzzle_{randomtag}.png')
 
 
 colour_dict = defaultdict(int)
@@ -160,9 +161,17 @@ for colour in colours:
     # Each colour must have at least one queen
     solver.add_clause([coord_to_index(i, j) for i, j in colour])
 
-# Find and print all solutions
 solver.solve()
 solution = solver.get_model()
+
+# board = [['.' for _ in range(size)] for _ in range(size)]
+# for i in range(size):
+#     for j in range(size):
+#         if solution[coord_to_index(i, j) - 1] > 0:
+#             board[i][j] = 'Q'
+# for row in board:
+#     print("\t" + " ".join(row))
+# print()
 
 print("Brain time: ", time.time()-brain_start)
 
