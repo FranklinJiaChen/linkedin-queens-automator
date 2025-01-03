@@ -8,6 +8,7 @@ from datetime import datetime
 from collections import defaultdict
 from pysat.solvers import Glucose3
 from itertools import combinations
+from random import randint
 import time
 
 eye_start = time.time()
@@ -44,18 +45,15 @@ current_date = datetime.now().strftime('%Y-%m-%d')
 # Save the cropped image with the date in the filename
 cropped_image.save(f'{current_date}_puzzle.png')
 
-
 colour_dict = defaultdict(int)
 
-for x in range(cropped_image.width):
-    for y in range(cropped_image.height):
+for x in range(0, cropped_image.width, randint(7, 10)):
+    for y in range(0, cropped_image.height, randint(7, 10)):
         r, g, b = cropped_image.getpixel((x, y))
         colour_dict[(r, g, b)] += 1
 
-# sort by value
-sorted_colour_dict = dict(sorted(colour_dict.items(), key=lambda x: x[1], reverse=True))
 # count number of unique colours with values > 10
-unique_colours = sum(1 for value in sorted_colour_dict.values() if value > 10)-1
+unique_colours = sum(1 for value in colour_dict.values() if value > 5)-1
 
 resized_image = cropped_image.resize((unique_colours, unique_colours), Image.NEAREST)
 
@@ -144,7 +142,15 @@ for colour in colours:
 
 solver.solve()
 solution = solver.get_model()
-solver.delete()
+
+# board = [['.' for _ in range(size)] for _ in range(size)]
+# for i in range(size):
+#     for j in range(size):
+#         if solution[coord_to_index(i, j) - 1] > 0:
+#             board[i][j] = 'Q'
+# for row in board:
+#     print(" ".join(row))
+# print()
 
 print("Brain time: ", time.time()-brain_start)
 
@@ -157,4 +163,8 @@ for var in solution:
         # double click
         pyautogui.doubleClick(((j+1)/(unique_colours+1)*box[2] + box[0])//1, ((i+1)/(unique_colours+1)*box[3] + box[1])//1)
 
-print("Hand time: ", time.time()-hand_start)
+print("Hand time:", time.time() - hand_start)
+
+print("Total time: ", time.time()-eye_start)
+
+solver.delete()

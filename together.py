@@ -5,9 +5,7 @@ from datetime import datetime
 from collections import defaultdict
 from pysat.solvers import Glucose3
 from itertools import combinations
-import time
 
-eye_start = time.time()
 # Capture a screenshot of a specific region
 screenshot = pyautogui.screenshot(region=(800, 400, 1425-800, 1030-400))
 screenshot = Image.open('2025-01-01_puzzle.png')
@@ -49,12 +47,8 @@ for x in range(cropped_image.width):
         r, g, b = cropped_image.getpixel((x, y))
         colour_dict[(r, g, b)] += 1
 
-# sort by value
-sorted_colour_dict = dict(sorted(colour_dict.items(), key=lambda x: x[1], reverse=True))
-print(sorted_colour_dict)
 # count number of unique colours with values > 10
-unique_colours = sum(1 for value in sorted_colour_dict.values() if value > 10)-1
-print(unique_colours)
+unique_colours = sum(1 for value in colour_dict.values() if value > 10)-1
 
 resized_image = cropped_image.resize((unique_colours, unique_colours), Image.NEAREST)
 
@@ -64,9 +58,6 @@ for x in range(resized_image.width):
     for y in range(resized_image.height):
         r, g, b = resized_image.getpixel((x, y))
         colour_dict[(r, g, b)].append((x, y))
-
-print("Eye time: ", time.time()-eye_start)
-brain_start = time.time()
 
 solver = Glucose3()
 size = unique_colours
@@ -145,31 +136,6 @@ for colour in colours:
 solutions = []
 while solver.solve():
     solution = solver.get_model()
-    print(solution)
-    solutions.append(solution)
-
-    # Print the current solution
-    print(f"Solution {len(solutions)}:")
-    board = [['.' for _ in range(size)] for _ in range(size)]
-    for i in range(size):
-        for j in range(size):
-            if solution[coord_to_index(i, j) - 1] > 0:
-                board[i][j] = 'Q'
-    for row in board:
-        print(" ".join(row))
-    print()
-
-    # Add clause to block the current solution
-    solver.add_clause([-var for var in solution])
-
-solver.delete()
-
-print("Brain time: ", time.time()-brain_start)
-
-hand_start = time.time()
-
-# Print total solutions found
-print(f"Total Solutions: {len(solutions)}")
 
 box = [800+min_x, 400+min_y, max_x-min_x, max_y-min_y]
 for var in solution:
@@ -178,4 +144,4 @@ for var in solution:
         # double click
         pyautogui.doubleClick(((j+1)/(unique_colours+1)*box[2] + box[0])//1, ((i+1)/(unique_colours+1)*box[3] + box[1])//1)
 
-print("Hand time: ", time.time()-hand_start)
+solver.delete()
