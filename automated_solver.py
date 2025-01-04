@@ -1,3 +1,6 @@
+"""
+Automated solver for Linkedin's queens puzzle.
+"""
 from collections import defaultdict
 from datetime import datetime
 from itertools import combinations
@@ -25,7 +28,7 @@ PUZZLE_WIDTH = 596
 PUZZLE_HEIGHT = 596
 
 print_solution = False
-load_puzzle = True # set to True if you want to load a puzzle from a file
+load_puzzle = False # set to True if you want to load a puzzle from a file
 image = Image.open('./images/old-puzzles/2025-01-01_puzzle.png')
 
 def is_purpleish(colour):
@@ -123,7 +126,6 @@ while is_purpleish(pyautogui.screenshot().getpixel(PURPLE_POLLING_COORDS)):
 
 #region eye
 eye_start = time.time()
-# Capture a screenshot of a specific region using mss
 
 with mss.mss() as sct:
     screenshot = sct.grab({"left": PUZZLE_X, "top": PUZZLE_Y,
@@ -141,7 +143,9 @@ for x in range(0, image.width, randint(7, 10)):
         r, g, b = image.getpixel((x, y))
         colour_dict[(r, g, b)] += 1
 
-unique_colours = sum(1 for value in colour_dict.values() if value > 5)-1
+# remove the border colours of black with high occurences
+# and many different grey colours with small occurences
+unique_colours = sum(1 for value in colour_dict.values() if value > 10) - 1
 
 resized_image = image.resize((unique_colours, unique_colours), Image.NEAREST)
 
