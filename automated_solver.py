@@ -1,64 +1,38 @@
-import pyautogui
-from PIL import Image
-from datetime import datetime
 from collections import defaultdict
-from pysat.solvers import Glucose3
+from datetime import datetime
 from itertools import combinations
 from random import randint
-import mss
 import time
 
+import mss
+import pyautogui
+from PIL import Image
+from pysat.solvers import Glucose3
+
 pyautogui.PAUSE = 0
-solver = Glucose3()
-randomtag = ''.join([chr(randint(97, 122)) for _ in range(5)])
-print("attempt tag: ", randomtag) # for debugging with screenshot
+
+SMALLEST_SIZE = 7 # smallest size of the puzzle (an educated guess)
+LARGEST_SIZE = 12 # largest size of the puzzle (an educated guess)
+
+# Change these coordinates to match the puzzle's location on your screen
+START_BUTTON_COORDS = (1100, 1000) # coordinates of the start button
+AWAY_FROM_PUZZLE_COORDS = (1100, 400) # coordinates away from the puzzle
+PURPLE_POLLING_COORDS = (1100, 400) # coordinates to poll for purple colour
+
+PUZZLE_X = 817
+PUZZLE_Y = 429
+PUZZLE_WIDTH = 596
+PUZZLE_HEIGHT = 596
+
+print_solution = False
+load_puzzle = True # set to True if you want to load a puzzle from a file
+image = Image.open('./images/old-puzzles/2025-01-01_puzzle.png')
 
 def is_purpleish(colour):
-    r, g, b = colour
-    return r > 100 and g < 100 and b > 100  # Adjust this threshold as needed
-
-# Start the puzzle
-pyautogui.moveTo(1100, 1000)
-# pyautogui.click()
-pyautogui.moveTo(1100, 400) # avoid hovering over the puzzle
-
-# Wait until the color at pixel (1100, 400) is not purpleish
-while is_purpleish(pyautogui.screenshot().getpixel((1100, 400))):
-    # Get and print the current pixel color
-    color = pyautogui.screenshot().getpixel((1100, 400))
-    print(color)
-    print("waiting")
-
-eye_start = time.time()
-
-# Capture a screenshot of a specific region using mss
-screenshot_area = (817, 429, 596, 596)
-with mss.mss() as sct:
-    screenshot = sct.grab({"left": screenshot_area[0], "top": screenshot_area[1],
-                           "width": screenshot_area[2], "height": screenshot_area[3]})
-
-image = Image.frombytes("RGB", screenshot.size, screenshot.rgb)
-
-colour_dict = defaultdict(int)
-
-for x in range(0, image.width, randint(27, 30)):
-    for y in range(0, image.height, randint(27, 30)):
-        r, g, b = image.getpixel((x, y))
-        colour_dict[(r, g, b)] += 1
-
-# count number of unique colours with values > 10
-unique_colours = sum(1 for value in colour_dict.values() if value > 10)-1
-
-resized_image = image.resize((unique_colours, unique_colours), Image.NEAREST)
-
-# create a dictionary of {colour: [(x, y), (x, y), ...]}
-colour_dict = defaultdict(list)
-for x in range(resized_image.width):
-    for y in range(resized_image.height):
-        r, g, b = resized_image.getpixel((x, y))
-        colour_dict[(r, g, b)].append((x, y))
-
-size = unique_colours
+    """
+    Check if a colour is purpleish
+    """
+    return colour[0] > 100 and colour[2] > 100 and colour[1] < 100
 
 def coord_to_index(i: int, j: int) -> int:
     """
@@ -74,70 +48,130 @@ def coord_to_index(i: int, j: int) -> int:
     """
     return i * size + j + 1
 
-def index_to_coord(index: int) -> tuple[int, int]:
+def index_to_clicking_coords(index: int) -> tuple[int, int]:
     """
-    Convert a variable index to cell coordinates (i, j).
+    Convert a variable index to clicking coordinates (x, y).
 
     Parameters:
     index: The variable index.
 
     Returns:
-    A tuple of row and column indices (i, j).
+    The clicking coordinates of the cell corresponding to the variable index.
     """
-    return (index - 1) // size, (index - 1) % size
+    i = (index - 1) // size
+    j = (index - 1) % size
+    x = (j+1)/(size+1) * PUZZLE_WIDTH + PUZZLE_X
+    y = (i+1)/(size+1) * PUZZLE_HEIGHT + PUZZLE_Y
+    return x, y
 
-print("Eye time: ", time.time()-eye_start)
-brain_start = time.time()
+def add_row_clauses(solver: Glucose3) -> Glucose3:
+    """
+    Add clauses to the solver to ensure that each row has exactly one queen.
+    """
+    for i in range(size):
+        # Each row must have at least one queen
+        solver.add_clause([coord_to_index(i, j) for j in range(size)])
+        # Each row must have at most one queen
+        for j1, j2 in combinations(range(size), 2):
+            solver.add_clause([-coord_to_index(i, j1), -coord_to_index(i, j2)])
+    return solver
 
-# Generate clauses for Queens constraints
-# One queen per row
-for i in range(size):
-    # Each row must have at least one queen
-    solver.add_clause([coord_to_index(i, j) for j in range(size)])
-
-    # Each row must have at most one queen (no two queens in the same row)
-    for j1, j2 in combinations(range(size), 2):
-        solver.add_clause([-coord_to_index(i, j1), -coord_to_index(i, j2)])
-
-# Step 2: One queen per column
-for j in range(size):
-    # Each column must have at least one queen
-    solver.add_clause([coord_to_index(i, j) for i in range(size)])
-
-    # Each column must have at most one queen (no two queens in the same column)
-    for i1, i2 in combinations(range(size), 2):
-        solver.add_clause([-coord_to_index(i1, j), -coord_to_index(i2, j)])
-
-# Step 3: No two queens can touch adjacentally
-# We just need to add diagonally adjacent constraints
-for i in range(size - 1):
+def add_column_clauses(solver: Glucose3) -> Glucose3:
+    """
+    Add clauses to the solver to ensure that each column has exactly one queen.
+    """
     for j in range(size):
-        # Check for adjacent lower-right diagonal
-        if j < size - 1:
-            solver.add_clause([-coord_to_index(i, j), -coord_to_index(i + 1, j + 1)])
+        # Each column must have at least one queen
+        solver.add_clause([coord_to_index(i, j) for i in range(size)])
+        # Each column must have at most one queen
+        for i1, i2 in combinations(range(size), 2):
+            solver.add_clause([-coord_to_index(i1, j), -coord_to_index(i2, j)])
 
-        # Check for adjacent lower-left diagonal
-        if j > 0:
-            solver.add_clause([-coord_to_index(i, j), -coord_to_index(i + 1, j - 1)])
+def add_adjacent_clauses(solver: Glucose3) -> Glucose3:
+    """
+    Add clauses to the solver to ensure that no two queens are adjacent.
+    note: just checks for diagonal adjacency since
+          we already row/column clauses check for orthogonal adjacency
+    """
+    for i in range(size - 1):
+        for j in range(size):
+            # Check for adjacent lower-right diagonal
+            if j < size - 1:
+                solver.add_clause([-coord_to_index(i, j),
+                                -coord_to_index(i + 1, j + 1)])
+            # Check for adjacent lower-left diagonal
+            if j > 0:
+                solver.add_clause([-coord_to_index(i, j),
+                                -coord_to_index(i + 1, j - 1)])
 
+# generate solvers for each size with universal clauses
+size_to_solver = {}
+for size in range(SMALLEST_SIZE, LARGEST_SIZE+1):
+    solver = Glucose3()
+    add_row_clauses(solver)
+    add_column_clauses(solver)
+    add_adjacent_clauses(solver)
+    size_to_solver[size] = solver
 
-colours = colour_dict.values()
-colours = [[(j, i) for i, j in colour] for colour in colours]
+# Start the puzzle
+pyautogui.moveTo(START_BUTTON_COORDS)
+pyautogui.click()
+pyautogui.moveTo(AWAY_FROM_PUZZLE_COORDS) # avoid hovering over the puzzle
+# Wait until the puzzle is loaded by polling the colour of a pixel
+while is_purpleish(pyautogui.screenshot().getpixel(PURPLE_POLLING_COORDS)):
+    pass
 
+#region eye
+eye_start = time.time()
+# Capture a screenshot of a specific region using mss
+
+with mss.mss() as sct:
+    screenshot = sct.grab({"left": PUZZLE_X, "top": PUZZLE_Y,
+                           "width": PUZZLE_WIDTH, "height": PUZZLE_HEIGHT})
+
+if load_puzzle:
+    _ = Image.frombytes("RGB", screenshot.size, screenshot.rgb) # simulate time
+else:
+    image = Image.frombytes("RGB", screenshot.size, screenshot.rgb)
+
+colour_dict = defaultdict(int)
+
+for x in range(0, image.width, randint(7, 10)):
+    for y in range(0, image.height, randint(7, 10)):
+        r, g, b = image.getpixel((x, y))
+        colour_dict[(r, g, b)] += 1
+
+unique_colours = sum(1 for value in colour_dict.values() if value > 5)-1
+
+resized_image = image.resize((unique_colours, unique_colours), Image.NEAREST)
+
+# create a dictionary of {colour: [(i, j), (i, j), ...]}
+colour_dict = defaultdict(list)
+for x in range(resized_image.width):
+    for y in range(resized_image.height):
+        r, g, b = resized_image.getpixel((x, y))
+        colour_dict[(r, g, b)].append((y, x))
+
+size = unique_colours
+print("Eye time: ", time.time()-eye_start)
+#endregion
+
+#region brain
+brain_start = time.time()
+solver = size_to_solver[size] # get the solver for the current size
 # Step 4: One queen per colour
+colours = colour_dict.values()
 for colour in colours:
-    # Each colour must have at most one queen (no two queens in the same colour)
-    for (i1, j1), (i2, j2) in combinations(colour, 2):
-        solver.add_clause([-coord_to_index(i1, j1), -coord_to_index(i2, j2)])
-
     # Each colour must have at least one queen
     solver.add_clause([coord_to_index(i, j) for i, j in colour])
+    # Each colour must have at most one queen
+    for (i1, j1), (i2, j2) in combinations(colour, 2):
+        solver.add_clause([-coord_to_index(i1, j1), -coord_to_index(i2, j2)])
 
 solver.solve()
 solution = solver.get_model()
 
-show_solution = False
-if show_solution:
+if print_solution:
     board = [['.' for _ in range(size)] for _ in range(size)]
     for i in range(size):
         for j in range(size):
@@ -148,21 +182,19 @@ if show_solution:
     print()
 
 print("Brain time: ", time.time()-brain_start)
+#endregion
 
+#region hand
 hand_start = time.time()
 
-# solution = [var+1 for var in solution]
 for var in solution:
     if var > 0:
-        i, j = index_to_coord(var)
-        # double click
-        pyautogui.doubleClick((j+1)/(unique_colours+1)*screenshot_area[2] + screenshot_area[0],
-                        (i+1)/(unique_colours+1)*screenshot_area[3] + screenshot_area[1])
+        pyautogui.doubleClick(index_to_clicking_coords(var))
 
 print("Hand time:", time.time() - hand_start)
+# endregion
 
 print("Total time: ", time.time()-eye_start)
-
 # Save screenshot to a file
 current_date = datetime.now().strftime('%Y-%m-%d')
-image.save(f'./images/new-attempt/{current_date}_puzzle_{randomtag}.png')
+image.save(f'./images/new-attempts/{current_date}_puzzle.png')
