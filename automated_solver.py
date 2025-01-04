@@ -19,13 +19,13 @@ LARGEST_SIZE = 12 # largest size of the puzzle (an educated guess)
 
 # Change these coordinates to match the puzzle's location on your screen
 START_BUTTON_COORDS = (1100, 1000) # coordinates of the start button
-AWAY_FROM_PUZZLE_COORDS = (1100, 400) # coordinates away from the puzzle
+AWAY_FROM_PUZZLE_COORDS = (1100, 300) # coordinates away from the puzzle
 PURPLE_POLLING_COORDS = (1100, 400) # coordinates to poll for purple colour
 
-PUZZLE_X = 817
-PUZZLE_Y = 429
-PUZZLE_WIDTH = 596
-PUZZLE_HEIGHT = 596
+# PUZZLE_X = 817 # doesn't change for the puzzles?
+# PUZZLE_Y = 378 # not a constant
+# PUZZLE_WIDTH = 597 # doesn't change for the puzzles?
+# PUZZLE_HEIGHT = 597 # doesn't change for the puzzles?
 
 print_solution = False
 load_puzzle = False # set to True if you want to load a puzzle from a file
@@ -63,8 +63,8 @@ def index_to_clicking_coords(index: int) -> tuple[int, int]:
     """
     i = (index - 1) // size
     j = (index - 1) % size
-    x = (j+1)/(size+1) * PUZZLE_WIDTH + PUZZLE_X
-    y = (i+1)/(size+1) * PUZZLE_HEIGHT + PUZZLE_Y
+    x = (j+1)/(size+1) * puzzle_width + puzzle_x
+    y = (i+1)/(size+1) * puzzle_height + puzzle_y
     return x, y
 
 def add_row_clauses(solver: Glucose3) -> Glucose3:
@@ -119,17 +119,57 @@ for size in range(SMALLEST_SIZE, LARGEST_SIZE+1):
 # Start the puzzle
 pyautogui.moveTo(START_BUTTON_COORDS)
 pyautogui.click()
+
+# region eye
+eye_start = time.time()
+
 pyautogui.moveTo(AWAY_FROM_PUZZLE_COORDS) # avoid hovering over the puzzle
 # Wait until the puzzle is loaded by polling the colour of a pixel
 while is_purpleish(pyautogui.screenshot().getpixel(PURPLE_POLLING_COORDS)):
     pass
 
-#region eye
-eye_start = time.time()
+POTENTIAL_X_START = 800
+POTENTIAL_X_RANGE = 30
+POTENTIAL_Y_START = 360
+POTENTIAL_Y_RANGE = 100
+POTENTIAL_DIMENSION_MIN = 580
+POTENTIAL_DIMENSION_RANGE = 40
+BORDER_OFFSET = 30
+BORDER_OFFSET_INITIAL = 100
+with mss.mss() as sct:
+    long_screenshot = sct.grab({"left": POTENTIAL_X_START, "top": POTENTIAL_Y_START+BORDER_OFFSET_INITIAL,
+                                "width": POTENTIAL_X_RANGE, "height": 1})
+    for x in range(POTENTIAL_X_RANGE):
+        if long_screenshot.pixel(x, 0) == (0, 0, 0):
+            puzzle_x = POTENTIAL_X_START + x
+            break
+with mss.mss() as sct:
+    long_screenshot = sct.grab({"left": puzzle_x + BORDER_OFFSET, "top": POTENTIAL_Y_START,
+                                "width": 1, "height": POTENTIAL_Y_RANGE})
+    for y in range(POTENTIAL_Y_RANGE):
+        if long_screenshot.pixel(0, y) == (0, 0, 0):
+            puzzle_y = POTENTIAL_Y_START + y
+            break
 
 with mss.mss() as sct:
-    screenshot = sct.grab({"left": PUZZLE_X, "top": PUZZLE_Y,
-                           "width": PUZZLE_WIDTH, "height": PUZZLE_HEIGHT})
+    long_screenshot = sct.grab({"left": puzzle_x + POTENTIAL_DIMENSION_MIN, "top": puzzle_y + BORDER_OFFSET, "width": POTENTIAL_DIMENSION_RANGE, "height": 1})
+    for x in range(POTENTIAL_DIMENSION_RANGE-1, -1, -1):
+        if long_screenshot.pixel(x, 0) == (0, 0, 0):
+            puzzle_width = POTENTIAL_DIMENSION_MIN + x + 1
+            break
+
+with mss.mss() as sct:
+    long_screenshot = sct.grab({"left": puzzle_x + BORDER_OFFSET, "top": puzzle_y + POTENTIAL_DIMENSION_MIN, "width": 1, "height": POTENTIAL_DIMENSION_RANGE})
+    for y in range(POTENTIAL_DIMENSION_RANGE-1, -1, -1):
+        if long_screenshot.pixel(0, y) == (0, 0, 0):
+            puzzle_height = POTENTIAL_DIMENSION_MIN + y + 1
+            break
+
+print("puzzle box:", puzzle_x, puzzle_y, puzzle_width, puzzle_height)
+
+with mss.mss() as sct:
+    screenshot = sct.grab({"left": puzzle_x, "top": puzzle_y,
+                           "width": puzzle_width, "height": puzzle_height})
 
 if load_puzzle:
     _ = Image.frombytes("RGB", screenshot.size, screenshot.rgb) # simulate time
@@ -158,9 +198,9 @@ for x in range(resized_image.width):
 
 size = unique_colours
 print("Eye time: ", time.time()-eye_start)
-#endregion
+# endregion
 
-#region brain
+# region brain
 brain_start = time.time()
 solver = size_to_solver[size] # get the solver for the current size
 # Step 4: One queen per colour
@@ -186,9 +226,9 @@ if print_solution:
     print()
 
 print("Brain time: ", time.time()-brain_start)
-#endregion
+# endregion
 
-#region hand
+# region hand
 hand_start = time.time()
 
 for var in solution:
