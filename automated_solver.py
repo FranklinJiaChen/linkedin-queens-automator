@@ -27,10 +27,12 @@ PUZZLE_Y = 378 # doesn't change for the puzzles?
 PUZZLE_WIDTH = 597 # doesn't change for the puzzles?
 PUZZLE_HEIGHT = 597 # doesn't change for the puzzles?
 
-aim_for_a_time = True
+print_solution = False # print the solution to the console
+
+# 0s solutions don't display properly on Linkedin and can't be shared
+aim_for_a_time = False
 aim_time = 1 # seconds
 
-print_solution = False
 load_puzzle = False # set to True if you want to load a puzzle from a filE
 image = Image.open('./images/old-puzzles/2025-01-01_puzzle.png')
 
@@ -124,7 +126,6 @@ pyautogui.moveTo(START_BUTTON_COORDS)
 pyautogui.click()
 
 # region eye
-
 pyautogui.moveTo(AWAY_FROM_PUZZLE_COORDS) # avoid hovering over the puzzle
 
 if aim_for_a_time:

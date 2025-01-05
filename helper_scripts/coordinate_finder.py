@@ -1,4 +1,5 @@
 """
+Helper script
 used to find the coordinates of the puzzle on the screen
 """
 import mss
